@@ -232,6 +232,7 @@ export function restartGame(room: Room) {
     p.numbers = [];
     p.modifiers = [];
     p.secondChance = null;
+    p.bustedBy = null;
     p.status = 'active';
     p.hitFlipSeven = false;
   }

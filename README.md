@@ -94,6 +94,9 @@ implementation does:
   it's discarded.
 - **Freeze / Flip Three with only one legal target** auto-resolves rather than prompting.
 - **Ties at the target score** are a shared win between everyone on the top score.
+- **A busted tableau stays face-up** until the round is scored, with the offending card set
+  apart and ringed in red, so everyone can see which duplicate did it. The cards only reach
+  the discard pile at scoring time.
 - **Deck exhaustion** reshuffles the discard pile back in mid-round.
 
 ## Multiplayer & disconnects

@@ -47,6 +47,12 @@ export interface PlayerState {
   modifiers: ModifierCard[];
   /** At most one at a time; sits face-up in the tableau. */
   secondChance: ActionCard | null;
+  /**
+   * The duplicate that busted this player. Kept face-up alongside their tableau
+   * until the round ends so everyone can see what went wrong — the cards only
+   * reach the discard pile at scoring time.
+   */
+  bustedBy: NumberCard | null;
   status: PlayerStatus;
   /** Score earned in the most recently completed round (null before round 1). */
   lastRoundScore: number | null;

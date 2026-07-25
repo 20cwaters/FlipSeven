@@ -89,15 +89,47 @@ describe('busting', () => {
     const p0 = player(state, 'p0');
     expect(p0.status).toBe('busted');
     expect(tableauScore(p0)).toBe(0);
-    expect(p0.numbers).toHaveLength(0); // tableau goes to the discard pile
   });
 
-  it('sends the busted tableau to the discard pile', () => {
+  it('keeps the busting card face-up so the table can see what happened', () => {
     const state = makeGame(['A', 'B'], [num(7)]);
     seed(state, 'p0', [7, 4]);
     hit(state, 'p0');
-    // 7, 4, and the duplicate 7 are all discarded.
-    expect(state.discard).toHaveLength(3);
+
+    const p0 = player(state, 'p0');
+    expect(p0.bustedBy?.value).toBe(7);
+    // The tableau it broke stays visible too, and nothing is discarded yet.
+    expect(p0.numbers.map((c) => c.value)).toEqual([7, 4]);
+    expect(state.discard).toHaveLength(0);
+    expect(state.flash?.busted).toBe(true);
+    expect(state.flash?.card).toEqual(p0.bustedBy);
+  });
+
+  it('sends the busted tableau and the busting card to the discard pile at round end', () => {
+    const state = makeGame(['A', 'B'], [num(7)]);
+    seed(state, 'p0', [7, 4]);
+    hit(state, 'p0');
+    stay(state, 'p1');
+    runUntilInput(state);
+
+    expect(state.phase).toBe('round_end');
+    // 7, 4, and the duplicate 7 all end up discarded.
+    expect(state.discard.filter((c) => c.kind === 'number')).toHaveLength(3);
+    expect(player(state, 'p0').bustedBy).toBeNull();
+    expect(player(state, 'p0').numbers).toHaveLength(0);
+  });
+
+  it('still scores a busted player as zero while their cards are showing', () => {
+    const state = makeGame(['A', 'B'], [num(7)]);
+    seed(state, 'p0', [7, 12], [x2(), plus(10)]);
+    hit(state, 'p0');
+    expect(player(state, 'p0').numbers.length).toBeGreaterThan(0);
+
+    endRound(state);
+    const row = state.roundSummary!.find((r) => r.playerId === 'p0')!;
+    expect(row.busted).toBe(true);
+    expect(row.total).toBe(0);
+    expect(player(state, 'p0').totalScore).toBe(0);
   });
 
   it('does not bust on a duplicate modifier value', () => {

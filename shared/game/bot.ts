@@ -30,6 +30,11 @@ function unseenNumberCounts(state: GameState): Map<number, number> {
     for (const card of p.numbers) {
       counts.set(card.value, (counts.get(card.value) ?? 0) - 1);
     }
+    // A busted player's cards stay face-up until the round is scored, so the
+    // card that busted them is visible information too.
+    if (p.bustedBy) {
+      counts.set(p.bustedBy.value, (counts.get(p.bustedBy.value) ?? 0) - 1);
+    }
   }
   return counts;
 }

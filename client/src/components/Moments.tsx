@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { FLIP_SEVEN_BONUS, FLIP_SEVEN_COUNT } from '@shared/game/cards';
-import type { GameState } from '@shared/game/types';
+import type { Card, GameState } from '@shared/game/types';
 
 import { PlayingCard } from './PlayingCard';
 
 type Moment =
-  | { kind: 'bust'; id: number; name: string }
+  | { kind: 'bust'; id: number; name: string; card: Card }
   | { kind: 'flip7'; id: number; name: string }
-  | { kind: 'saved'; id: number; name: string };
+  | { kind: 'saved'; id: number; name: string; card: Card };
 
-const DURATION_MS = 2200;
+/** Long enough to actually read the card that landed. */
+const DURATION_MS = 2800;
 
 /**
  * Big transient callouts for the dramatic beats — busts, Flip 7s, and a Second
@@ -44,8 +45,10 @@ export function Moments({ state }: { state: GameState }) {
     lastFlash.current = flash.seq;
 
     const name = state.players.find((p) => p.id === flash.playerId)?.name ?? 'Someone';
-    if (flash.busted) show({ kind: 'bust', id: flash.seq, name });
-    else if (flash.savedBySecondChance) show({ kind: 'saved', id: flash.seq, name });
+    if (flash.busted) show({ kind: 'bust', id: flash.seq, name, card: flash.card });
+    else if (flash.savedBySecondChance) {
+      show({ kind: 'saved', id: flash.seq, name, card: flash.card });
+    }
   }, [state]);
 
   useEffect(
@@ -65,11 +68,21 @@ export function Moments({ state }: { state: GameState }) {
     >
       {moment.kind === 'bust' && (
         <div className="animate-rise-fade text-center">
+          <div className="mb-3 flex justify-center">
+            <div className="animate-shake">
+              <PlayingCard
+                card={moment.card}
+                size="lg"
+                className="ring-4 ring-tomato ring-offset-4 ring-offset-teal-900/0"
+              />
+            </div>
+          </div>
           <p className="font-display text-6xl uppercase tracking-tight text-tomato text-outline sm:text-8xl">
             Bust!
           </p>
           <p className="mt-1 font-display text-lg uppercase tracking-widest text-cream text-outline-thin">
-            {moment.name} drew a duplicate
+            {moment.name} drew a second{' '}
+            {moment.card.kind === 'number' ? moment.card.value : 'card'}
           </p>
         </div>
       )}
@@ -97,11 +110,19 @@ export function Moments({ state }: { state: GameState }) {
 
       {moment.kind === 'saved' && (
         <div className="animate-rise-fade text-center">
+          <div className="mb-3 flex justify-center">
+            <PlayingCard
+              card={moment.card}
+              size="lg"
+              className="ring-4 ring-emerald-400 ring-offset-4 ring-offset-teal-900/0"
+            />
+          </div>
           <p className="font-display text-4xl uppercase tracking-tight text-emerald-300 text-outline sm:text-6xl">
             Second Chance!
           </p>
           <p className="mt-1 font-display text-base uppercase tracking-widest text-cream text-outline-thin">
-            {moment.name} survives the duplicate
+            {moment.name} survives a second{' '}
+            {moment.card.kind === 'number' ? moment.card.value : 'card'}
           </p>
         </div>
       )}

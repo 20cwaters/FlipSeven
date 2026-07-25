@@ -60,6 +60,7 @@ export function createPlayer(
     numbers: [],
     modifiers: [],
     secondChance: null,
+    bustedBy: null,
     status: 'active',
     lastRoundScore: null,
     hitFlipSeven: false,
@@ -139,9 +140,11 @@ export function tableauScore(player: PlayerState, includeFlipSeven = true): numb
 function clearTableau(state: GameState, player: PlayerState) {
   state.discard.push(...player.numbers, ...player.modifiers);
   if (player.secondChance) state.discard.push(player.secondChance);
+  if (player.bustedBy) state.discard.push(player.bustedBy);
   player.numbers = [];
   player.modifiers = [];
   player.secondChance = null;
+  player.bustedBy = null;
 }
 
 /** Draws one card, reshuffling the discard pile back in if the deck runs dry. */
@@ -344,6 +347,10 @@ function resolveNumberCard(
 
   if (duplicate) {
     player.status = 'busted';
+    // The tableau deliberately stays put — the busting card and the number it
+    // matched remain face-up until the round is scored, so the table can see
+    // exactly what happened. clearTableau() at round end sweeps it all away.
+    player.bustedBy = card;
     flash(state, player.id, card, source, { busted: true });
     log(
       state,
@@ -351,8 +358,6 @@ function resolveNumberCard(
       `${player.name} drew a second ${card.value} and BUSTED.`,
       player.id,
     );
-    state.discard.push(card);
-    clearTableau(state, player);
     dropForcedDrawsFor(state, player.id);
     state.dealQueue = state.dealQueue.filter((id) => id !== player.id);
     return;
