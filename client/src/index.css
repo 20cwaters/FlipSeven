@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-teal-800 font-body text-cream antialiased;
+    /* Deco backdrop: warm radial glow over a subtle diagonal weave. */
+    background-image:
+      radial-gradient(circle at 50% -10%, rgba(95, 207, 198, 0.5), transparent 55%),
+      radial-gradient(circle at 90% 110%, rgba(249, 190, 59, 0.16), transparent 45%),
+      repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.035) 0px,
+        rgba(255, 255, 255, 0.035) 2px,
+        transparent 2px,
+        transparent 12px
+      );
+    background-attachment: fixed;
+    /* Safe-area padding for notched phones. */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* Nothing in this game benefits from text selection drag on mobile. */
+  button,
+  .no-select {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+}
+
+@layer components {
+  /* ---- Buttons ------------------------------------------------------- */
+  .btn {
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl
+           border-2 border-ink px-5 py-3 font-display text-base uppercase
+           tracking-wide transition active:translate-y-1 active:shadow-none
+           disabled:cursor-not-allowed disabled:opacity-40 disabled:active:translate-y-0;
+  }
+  .btn-primary {
+    @apply btn bg-marquee text-ink shadow-press hover:bg-marquee-dark;
+  }
+  .btn-danger {
+    @apply btn bg-tomato text-cream shadow-press hover:bg-tomato-dark;
+  }
+  .btn-ghost {
+    @apply btn border-cream/40 bg-white/5 text-cream shadow-none hover:bg-white/15
+           active:translate-y-0;
+  }
+  .btn-teal {
+    @apply btn bg-teal-500 text-cream shadow-press hover:bg-teal-600;
+  }
+
+  /* ---- Surfaces ------------------------------------------------------ */
+  .panel {
+    @apply rounded-2xl border-2 border-ink/40 bg-teal-900/55 p-3 shadow-card-sm
+           backdrop-blur-sm;
+  }
+  .deco-frame {
+    @apply relative rounded-3xl border-4 border-marquee/80 bg-teal-700/70 p-4
+           shadow-[0_0_0_4px_rgba(13,43,58,0.55)];
+  }
+
+  /* ---- Playing cards ------------------------------------------------- */
+  .card-face {
+    @apply relative flex select-none flex-col items-center justify-center
+           rounded-lg border-2 border-ink shadow-card-sm;
+  }
+
+  .field-label {
+    @apply mb-1 block font-display text-xs uppercase tracking-widest text-marquee;
+  }
+  .text-input {
+    @apply w-full rounded-xl border-2 border-ink/60 bg-cream px-4 py-3 font-body
+           text-lg font-semibold text-ink placeholder:text-ink/40
+           focus:border-marquee focus:outline-none focus:ring-2 focus:ring-marquee/60;
+  }
+}
+
+@layer utilities {
+  .text-outline {
+    -webkit-text-stroke: 2px #0d2b3a;
+    paint-order: stroke fill;
+  }
+  .text-outline-thin {
+    -webkit-text-stroke: 1px #0d2b3a;
+    paint-order: stroke fill;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

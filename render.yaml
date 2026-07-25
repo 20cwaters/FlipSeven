@@ -1,0 +1,22 @@
+# Render blueprint — a single web service that serves the built React client
+# and hosts the Socket.IO game server. No database: rooms live in memory.
+#
+# Note: Socket.IO needs sticky sessions if you ever scale past one instance.
+# Keep this at a single instance, or the WebSocket handshake will bounce
+# between machines that don't share room state.
+services:
+  - type: web
+    name: flip7
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: NODE_ENV
+        value: production
