@@ -1,7 +1,6 @@
 import {
   createGame,
   createPlayer,
-  hit,
   startRound,
   tick,
   waitingOn,
@@ -69,19 +68,6 @@ export function player(state: GameState, id: string): PlayerState {
   const p = state.players.find((x) => x.id === id);
   if (!p) throw new Error(`no player ${id}`);
   return p;
-}
-
-/**
- * Hits for whoever is currently on turn. Play passes after every flip, so tests
- * that want a player to draw twice have to come back around the table.
- */
-export function hitCurrent(state: GameState): string {
-  const wait = waitingOn(state);
-  if (wait?.type !== 'decision') {
-    throw new Error(`expected a decision, got ${JSON.stringify(wait)}`);
-  }
-  hit(state, wait.playerId);
-  return wait.playerId;
 }
 
 /** Runs the engine until it needs input (or `limit` steps elapse). */
