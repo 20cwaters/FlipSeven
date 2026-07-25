@@ -20,6 +20,7 @@ import {
   getPlayer,
   hit,
   nextRound,
+  removePlayer,
   stay,
 } from '../../shared/game/index.js';
 import {
@@ -167,8 +168,7 @@ io.on('connection', (socket) => {
     if (playerId === room.state.hostId) return;
 
     const target = getPlayer(room.state, playerId);
-    room.state.players = room.state.players.filter((p) => p.id !== playerId);
-    room.state.version += 1;
+    if (!removePlayer(room.state, playerId).ok) return;
 
     const socketId = room.sockets.get(playerId);
     if (socketId && target && !target.isBot) {
@@ -231,24 +231,23 @@ io.on('connection', (socket) => {
     restartGame(ctx.room);
   });
 
+  // Leaving is allowed at any point, mid-round included — the engine repairs the
+  // round around the empty seat rather than ending it for everyone else.
   socket.on('leave_room', () => {
     const ctx = contextFor(socket.id);
     if (!ctx) return;
     const { room, player } = ctx;
-    room.state.players = room.state.players.filter((p) => p.id !== player!.id);
-    room.sockets.delete(player!.id);
+
+    removePlayer(room.state, player.id);
+    room.sockets.delete(player.id);
     sessions.delete(socket.id);
     socket.leave(room.code);
 
-    if (room.state.players.every((p) => p.isBot)) {
+    // Nobody left to play for — don't keep a bot-only table running.
+    if (!room.state.players.some((p) => !p.isBot)) {
       deleteRoom(room.code);
       return;
     }
-    if (room.state.hostId === player!.id) {
-      const nextHost = room.state.players.find((p) => !p.isBot);
-      if (nextHost) room.state.hostId = nextHost.id;
-    }
-    room.state.version += 1;
     drive(room);
   });
 
@@ -264,21 +263,17 @@ io.on('connection', (socket) => {
     // Only drop the seat if the room hasn't started; mid-game we keep the seat
     // so they can rejoin, and the drive loop auto-plays for them meanwhile.
     if (room.state.phase === 'lobby') {
-      room.state.players = room.state.players.filter((p) => p.id !== player.id);
+      removePlayer(room.state, player.id);
       room.sockets.delete(player.id);
-      if (room.state.hostId === player.id) {
-        const nextHost = room.state.players.find((p) => !p.isBot);
-        if (nextHost) room.state.hostId = nextHost.id;
-      }
-      if (room.state.players.every((p) => p.isBot)) {
+      if (!room.state.players.some((p) => !p.isBot)) {
         deleteRoom(room.code);
         return;
       }
     } else {
       player.connected = false;
       room.sockets.delete(player.id);
+      room.state.version += 1;
     }
-    room.state.version += 1;
     drive(room);
   });
 });

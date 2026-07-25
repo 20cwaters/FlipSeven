@@ -636,9 +636,10 @@ export function hit(state: GameState, playerId: string, rng: Rng = defaultRng): 
   if (!card) return { ok: false, error: 'No cards left to draw.' };
   resolveCard(state, player, card, 'hit');
 
-  // If they survived and are still active, they choose again; otherwise the
-  // next tick moves play on.
-  if (player.status !== 'active') advanceTurn(state);
+  // One flip per turn: play always passes on, whether or not they survived.
+  // (Forced Flip Three draws are the exception, and they run off their own
+  // stack before the next player is asked to decide.)
+  advanceTurn(state);
   return { ok: true };
 }
 
@@ -678,6 +679,69 @@ export function chooseTarget(
     const current = state.players[state.turnIndex];
     if (current && current.status !== 'active') advanceTurn(state);
   }
+  return { ok: true };
+}
+
+/**
+ * Pulls a player out of the game entirely — they tapped Leave, or the host
+ * removed them. Safe to call at any point in a round: their cards go back to
+ * the discard pile, they're scrubbed from the deal queue, any forced draws and
+ * targeting prompts that referenced them are repaired, and the dealer/turn
+ * indices are shifted so they keep pointing at the same seats.
+ */
+export function removePlayer(state: GameState, playerId: string): ActionResult {
+  const index = state.players.findIndex((p) => p.id === playerId);
+  if (index === -1) return { ok: false, error: 'That player is not in this game.' };
+
+  state.version += 1;
+  const [gone] = state.players.splice(index, 1);
+  log(state, 'info', `${gone.name} left the game.`);
+
+  clearTableau(state, gone);
+  state.dealQueue = state.dealQueue.filter((id) => id !== playerId);
+  state.forced = state.forced.filter((f) => f.playerId !== playerId);
+  state.winnerIds = state.winnerIds.filter((id) => id !== playerId);
+  state.roundSummary =
+    state.roundSummary?.filter((row) => row.playerId !== playerId) ?? null;
+  if (state.flipSevenBy === playerId) state.flipSevenBy = null;
+  if (state.flash?.playerId === playerId) state.flash = null;
+
+  // A prompt owned by the leaver is abandoned; one merely *aimed* at them just
+  // loses that option (and is abandoned too if nothing legal is left).
+  if (state.pending) {
+    if (state.pending.actorId === playerId) {
+      state.discard.push(state.pending.card);
+      state.pending = null;
+    } else {
+      state.pending.targets = state.pending.targets.filter((id) => id !== playerId);
+      if (state.pending.targets.length === 0) {
+        state.discard.push(state.pending.card);
+        state.pending = null;
+      }
+    }
+  }
+
+  if (state.players.length === 0) {
+    state.phase = 'game_over';
+    return { ok: true };
+  }
+
+  const n = state.players.length;
+  if (index < state.dealerIndex) state.dealerIndex -= 1;
+  state.dealerIndex = Math.max(0, state.dealerIndex) % n;
+
+  if (index < state.turnIndex) state.turnIndex -= 1;
+  // If they *were* on turn, the splice already slid the next player into their
+  // slot, so the index needs no adjustment — only a wrap.
+  state.turnIndex = Math.max(0, state.turnIndex) % n;
+
+  if (state.players[state.turnIndex].status !== 'active') advanceTurn(state);
+
+  if (state.hostId === playerId) {
+    const nextHost = state.players.find((p) => !p.isBot) ?? state.players[0];
+    state.hostId = nextHost.id;
+  }
+
   return { ok: true };
 }
 

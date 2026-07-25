@@ -8,6 +8,7 @@ import {
   hit,
   isRoundOver,
   nextRound,
+  removePlayer,
   stay,
   tableauScore,
   tick,
@@ -27,12 +28,28 @@ import {
   x2,
 } from './helpers.js';
 
-describe('hit / stay basics', () => {
-  it('adds a unique number and keeps the turn with the same player', () => {
-    const state = makeGame(['A', 'B'], [num(5), num(9)]);
+describe('turn order', () => {
+  it('passes play after a single flip — one Hit per turn', () => {
+    const state = makeGame(['A', 'B', 'C'], [num(5), num(9), num(2)]);
     expect(hit(state, 'p0').ok).toBe(true);
     expect(player(state, 'p0').numbers.map((c) => c.value)).toEqual([5]);
+    // p0 does not get to keep flipping.
+    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p1' });
+
+    hit(state, 'p1');
+    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p2' });
+    hit(state, 'p2');
+    // Back around to p0 for their second flip.
     expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p0' });
+  });
+
+  it('rejects a second flip from the player who just went', () => {
+    const state = makeGame(['A', 'B'], [num(5), num(9)]);
+    hit(state, 'p0');
+    const result = hit(state, 'p0');
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/not your turn/i);
+    expect(player(state, 'p0').numbers).toHaveLength(1);
   });
 
   it('rejects a move from a player who is not on turn', () => {
@@ -44,17 +61,30 @@ describe('hit / stay basics', () => {
 
   it('banks on stay and passes the turn', () => {
     const state = makeGame(['A', 'B'], [num(5), num(3)]);
-    hit(state, 'p0');
     stay(state, 'p0');
     expect(player(state, 'p0').status).toBe('stayed');
     expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p1' });
+  });
+
+  it('skips players who have busted or banked', () => {
+    const state = makeGame(['A', 'B', 'C'], [num(5), num(9)]);
+    player(state, 'p1').status = 'stayed';
+    hit(state, 'p0');
+    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p2' });
+  });
+
+  it('returns to the same player when they are the last one active', () => {
+    const state = makeGame(['A', 'B'], [num(5), num(9)]);
+    player(state, 'p1').status = 'busted';
+    hit(state, 'p0');
+    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p0' });
   });
 });
 
 describe('busting', () => {
   it('busts on a duplicate number and zeroes the round', () => {
-    const state = makeGame(['A', 'B'], [num(7), num(7)]);
-    hit(state, 'p0');
+    const state = makeGame(['A', 'B'], [num(7)]);
+    seed(state, 'p0', [7]);
     hit(state, 'p0');
     const p0 = player(state, 'p0');
     expect(p0.status).toBe('busted');
@@ -63,25 +93,24 @@ describe('busting', () => {
   });
 
   it('sends the busted tableau to the discard pile', () => {
-    const state = makeGame(['A', 'B'], [num(7), num(4), num(7)]);
-    hit(state, 'p0');
-    hit(state, 'p0');
+    const state = makeGame(['A', 'B'], [num(7)]);
+    seed(state, 'p0', [7, 4]);
     hit(state, 'p0');
     // 7, 4, and the duplicate 7 are all discarded.
     expect(state.discard).toHaveLength(3);
   });
 
   it('does not bust on a duplicate modifier value', () => {
-    const state = makeGame(['A', 'B'], [plus(4), plus(4)]);
-    hit(state, 'p0');
+    const state = makeGame(['A', 'B'], [plus(4)]);
+    seed(state, 'p0', [], [plus(4)]);
     hit(state, 'p0');
     expect(player(state, 'p0').status).toBe('active');
     expect(player(state, 'p0').modifiers).toHaveLength(2);
   });
 
   it('ends the round once everyone has busted or banked', () => {
-    const state = makeGame(['A', 'B'], [num(3), num(3), num(6)]);
-    hit(state, 'p0'); // A: 3
+    const state = makeGame(['A', 'B'], [num(3)]);
+    seed(state, 'p0', [3]);
     hit(state, 'p0'); // A: duplicate 3 -> bust
     expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p1' });
     stay(state, 'p1');
@@ -96,13 +125,13 @@ describe('Second Chance', () => {
     const state = makeGame(['A', 'B'], [act('second_chance')]);
     hit(state, 'p0');
     expect(player(state, 'p0').secondChance).not.toBeNull();
-    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p0' });
+    // Drawing it still uses up the turn.
+    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p1' });
   });
 
   it('absorbs a duplicate instead of busting, and both cards are discarded', () => {
-    const state = makeGame(['A', 'B'], [num(8), act('second_chance'), num(8)]);
-    hit(state, 'p0'); // 8
-    hit(state, 'p0'); // second chance
+    const state = makeGame(['A', 'B'], [num(8)]);
+    seed(state, 'p0', [8], [act('second_chance')]);
     hit(state, 'p0'); // duplicate 8 -> saved
 
     const p0 = player(state, 'p0');
@@ -114,26 +143,26 @@ describe('Second Chance', () => {
   });
 
   it('only protects once — the next duplicate still busts', () => {
-    const state = makeGame(['A', 'B'], [num(8), act('second_chance'), num(8), num(8)]);
-    hit(state, 'p0');
-    hit(state, 'p0');
+    // Solo table so the same player draws twice in a row.
+    const state = makeGame(['A'], [num(8), num(8)]);
+    seed(state, 'p0', [8], [act('second_chance')]);
     hit(state, 'p0'); // saved
+    expect(player(state, 'p0').status).toBe('active');
     hit(state, 'p0'); // no shield left
     expect(player(state, 'p0').status).toBe('busted');
   });
 
   it('passes a duplicate Second Chance to an eligible player automatically when only one qualifies', () => {
-    const state = makeGame(['A', 'B'], [act('second_chance'), act('second_chance')]);
+    const state = makeGame(['A', 'B'], [act('second_chance')]);
+    seed(state, 'p0', [], [act('second_chance')]);
     hit(state, 'p0');
-    hit(state, 'p0');
-    expect(player(state, 'p0').secondChance).not.toBeNull();
     expect(player(state, 'p1').secondChance).not.toBeNull();
     expect(state.pending).toBeNull();
   });
 
   it('prompts for a target when several players could receive the spare', () => {
-    const state = makeGame(['A', 'B', 'C'], [act('second_chance'), act('second_chance')]);
-    hit(state, 'p0');
+    const state = makeGame(['A', 'B', 'C'], [act('second_chance')]);
+    seed(state, 'p0', [], [act('second_chance')]);
     hit(state, 'p0');
     expect(state.pending?.reason).toBe('second_chance_pass');
     expect(state.pending?.targets.sort()).toEqual(['p1', 'p2']);
@@ -146,10 +175,10 @@ describe('Second Chance', () => {
   });
 
   it('discards the spare when nobody can take it', () => {
-    const state = makeGame(['A', 'B'], [act('second_chance'), act('second_chance'), act('second_chance')]);
-    hit(state, 'p0'); // p0 keeps one
-    hit(state, 'p0'); // passes to p1 (only eligible)
-    hit(state, 'p0'); // nobody left without one -> discard
+    const state = makeGame(['A', 'B'], [act('second_chance')]);
+    seed(state, 'p0', [], [act('second_chance')]);
+    seed(state, 'p1', [], [act('second_chance')]);
+    hit(state, 'p0'); // everyone already holds one -> discard
     expect(state.pending).toBeNull();
     expect(state.discard.some((c) => c.kind === 'action')).toBe(true);
   });
@@ -207,8 +236,8 @@ describe('Flip Three', () => {
 
     expect(player(state, 'p1').numbers.map((c) => c.value)).toEqual([2, 3, 4]);
     expect(state.forced).toHaveLength(0);
-    // p0 was mid-turn when they drew it, so play returns to them.
-    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p0' });
+    // p0 used their flip drawing it, so play has already moved on to p1.
+    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p1' });
   });
 
   it('stops early when the forced draws bust the target', () => {
@@ -476,6 +505,129 @@ describe('the opening deal', () => {
     nextRound(state);
     expect(state.round).toBe(2);
     expect(state.dealerIndex).toBe(1);
+  });
+});
+
+describe('leaving mid-game', () => {
+  it('removes the seat and keeps the round going', () => {
+    const state = makeGame(['A', 'B', 'C'], [num(5), num(9)]);
+    seed(state, 'p1', [4, 6]);
+    expect(removePlayer(state, 'p1').ok).toBe(true);
+
+    expect(state.players.map((p) => p.id)).toEqual(['p0', 'p2']);
+    expect(state.phase).toBe('playing');
+    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p0' });
+  });
+
+  it('returns the leaver’s cards to the discard pile', () => {
+    const state = makeGame(['A', 'B'], []);
+    seed(state, 'p1', [4, 6], [x2(), act('second_chance')]);
+    removePlayer(state, 'p1');
+    expect(state.discard).toHaveLength(4);
+  });
+
+  it('passes the turn on when the player on turn leaves', () => {
+    const state = makeGame(['A', 'B', 'C'], [num(5)]);
+    state.turnIndex = 1;
+    removePlayer(state, 'p1');
+    // p2 slid into the vacated slot and is now on turn.
+    expect(waitingOn(state)).toEqual({ type: 'decision', playerId: 'p2' });
+  });
+
+  it('keeps the dealer indicator on the same seat', () => {
+    const state = makeGame(['A', 'B', 'C'], []);
+    state.dealerIndex = 2;
+    removePlayer(state, 'p0');
+    expect(state.players[state.dealerIndex].id).toBe('p2');
+  });
+
+  it('cancels a targeting prompt owned by the leaver', () => {
+    const state = makeGame(['A', 'B', 'C'], [act('freeze')]);
+    hit(state, 'p0');
+    expect(state.pending?.actorId).toBe('p0');
+
+    removePlayer(state, 'p0');
+    expect(state.pending).toBeNull();
+    expect(waitingOn(state)?.type).toBe('decision');
+  });
+
+  it('drops the leaver from a prompt aimed at them', () => {
+    const state = makeGame(['A', 'B', 'C'], [act('freeze')]);
+    hit(state, 'p0');
+    removePlayer(state, 'p2');
+    expect(state.pending?.targets).toEqual(['p0', 'p1']);
+  });
+
+  it('keeps a Freeze prompt alive while the actor can still target themselves', () => {
+    const state = makeGame(['A', 'B'], [act('freeze')]);
+    hit(state, 'p0');
+    expect(state.pending?.targets.sort()).toEqual(['p0', 'p1']);
+
+    removePlayer(state, 'p1');
+    expect(state.pending?.targets).toEqual(['p0']);
+    chooseTarget(state, 'p0', 'p0');
+    expect(player(state, 'p0').status).toBe('stayed');
+  });
+
+  it('cancels a prompt once every legal target has left', () => {
+    // A spare Second Chance can never be kept by the drawer, so removing the
+    // other two players leaves it with nowhere to go.
+    const state = makeGame(['A', 'B', 'C'], [act('second_chance')]);
+    seed(state, 'p0', [], [act('second_chance')]);
+    hit(state, 'p0');
+    expect(state.pending?.targets.sort()).toEqual(['p1', 'p2']);
+
+    removePlayer(state, 'p1');
+    expect(state.pending?.targets).toEqual(['p2']);
+    removePlayer(state, 'p2');
+
+    expect(state.pending).toBeNull();
+    expect(state.discard.some((c) => c.kind === 'action')).toBe(true);
+  });
+
+  it('cancels forced draws owed by the leaver', () => {
+    const state = makeGame(['A', 'B'], [act('flip_three'), num(2), num(3), num(4)]);
+    hit(state, 'p0');
+    chooseTarget(state, 'p0', 'p1');
+    expect(state.forced).toHaveLength(1);
+
+    removePlayer(state, 'p1');
+    expect(state.forced).toHaveLength(0);
+  });
+
+  it('hands the host role to another human', () => {
+    const state = makeGame(['A', 'B'], []);
+    state.hostId = 'p0';
+    state.players[1].isBot = true;
+    removePlayer(state, 'p0');
+    expect(state.hostId).toBe('p1');
+  });
+
+  it('ends the game if the table empties', () => {
+    const state = makeGame(['A'], []);
+    removePlayer(state, 'p0');
+    expect(state.players).toHaveLength(0);
+    expect(state.phase).toBe('game_over');
+  });
+
+  it('rejects an unknown player', () => {
+    const state = makeGame(['A', 'B'], []);
+    expect(removePlayer(state, 'nobody').ok).toBe(false);
+  });
+
+  it('lets the round still finish and score after someone leaves', () => {
+    const state = makeGame(['A', 'B', 'C'], []);
+    seed(state, 'p0', [10]);
+    seed(state, 'p2', [7]);
+    removePlayer(state, 'p1');
+
+    stay(state, 'p0');
+    stay(state, 'p2');
+    runUntilInput(state);
+
+    expect(state.phase).toBe('round_end');
+    expect(state.roundSummary?.map((r) => r.playerId)).toEqual(['p0', 'p2']);
+    expect(player(state, 'p0').totalScore).toBe(10);
   });
 });
 

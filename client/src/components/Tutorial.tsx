@@ -32,7 +32,7 @@ const TIPS: Tip[] = [
   {
     id: 'first-turn',
     title: 'Hit or Stay?',
-    body: 'Hit flips another card and adds it to your row. Stay banks everything in front of you and sits you out for the rest of the round. Your bust risk is shown right above the buttons.',
+    body: 'Hit flips one card into your row, then play moves to the next player — you get another go when it comes back around. Stay banks everything in front of you and sits you out for the rest of the round. Your bust risk is shown right above the buttons.',
     when: ({ myTurn }) => myTurn,
   },
   {

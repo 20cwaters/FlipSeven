@@ -6,6 +6,7 @@ import type { GameState, LogLine } from '@shared/game/types';
 import { ActionBar } from './ActionBar';
 import { WordMark } from './BrandMark';
 import { CardBack } from './PlayingCard';
+import { Modal } from './Modal';
 import { Moments } from './Moments';
 import { PlayerPanel } from './PlayerPanel';
 
@@ -17,6 +18,7 @@ export interface GameTableProps {
   onChooseTarget: (targetId: string) => void;
   onShowRules: () => void;
   onShowSummary: () => void;
+  onLeave: () => void;
 }
 
 const LOG_TONE: Partial<Record<LogLine['kind'], string>> = {
@@ -38,8 +40,10 @@ export function GameTable({
   onChooseTarget,
   onShowRules,
   onShowSummary,
+  onLeave,
 }: GameTableProps) {
   const [logOpen, setLogOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const logEnd = useRef<HTMLDivElement>(null);
 
   const waiting = useMemo(() => waitingOn(state), [state]);
@@ -98,6 +102,14 @@ export function GameTable({
             className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-cream/30 font-display text-sm"
           >
             ?
+          </button>
+          <button
+            type="button"
+            onClick={() => setLeaveOpen(true)}
+            aria-label="Leave game"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-tomato/50 text-sm text-tomato-light"
+          >
+            ⏻
           </button>
         </div>
 
@@ -165,6 +177,31 @@ export function GameTable({
       </main>
 
       <ActionBar state={state} me={me} waiting={waiting} onHit={onHit} onStay={onStay} />
+
+      <Modal
+        open={leaveOpen}
+        onClose={() => setLeaveOpen(false)}
+        title="Leave this game?"
+        footer={
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn-ghost flex-1 text-sm"
+              onClick={() => setLeaveOpen(false)}
+            >
+              Keep playing
+            </button>
+            <button type="button" className="btn-danger flex-1 text-sm" onClick={onLeave}>
+              Leave
+            </button>
+          </div>
+        }
+      >
+        <p className="text-sm text-cream/85">
+          Your seat and score are given up, and the round carries on without you. You
+          can't rejoin this game afterwards.
+        </p>
+      </Modal>
     </div>
   );
 }

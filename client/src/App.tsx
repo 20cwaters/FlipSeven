@@ -198,6 +198,7 @@ export default function App() {
           onChooseTarget={(targetId) => socket.emit('choose_target', { targetId })}
           onShowRules={() => setRulesOpen(true)}
           onShowSummary={() => setSummaryOpen(true)}
+          onLeave={handleLeave}
         />
       )}
 

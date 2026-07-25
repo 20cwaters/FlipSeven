@@ -51,20 +51,25 @@ export function RulesModal({
 
       <Section title="Your turn">
         <p>
-          Everyone gets one card face-up to start the round. Then, in turn order, you
-          choose:
+          Everyone gets one card face-up to start the round. Play then goes around the
+          table one player at a time. On your turn you take exactly one action:
         </p>
         <ul className="ml-4 list-disc space-y-1">
           <li>
-            <strong className="text-marquee">Hit</strong> — flip another card. Draw a
-            number you already have and you <strong className="text-tomato-light">bust</strong>:
-            zero for the round, and you're out until the next one.
+            <strong className="text-marquee">Hit</strong> — flip <em>one</em> card, then
+            play passes to the next player. Draw a number you already have and you{' '}
+            <strong className="text-tomato-light">bust</strong>: zero for the round, and
+            you're out until the next one.
           </li>
           <li>
             <strong className="text-emerald-300">Stay</strong> — bank the points in
             front of you and sit out the rest of the round.
           </li>
         </ul>
+        <p className="text-cream/70">
+          Play keeps looping around the table until everyone has busted or banked. A
+          Flip Three is the one exception — those three cards are drawn back to back.
+        </p>
       </Section>
 
       <Section title={`Flip ${FLIP_SEVEN_COUNT}!`}>

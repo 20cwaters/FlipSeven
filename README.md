@@ -83,6 +83,9 @@ control returns to the interrupted one. A bust or a Flip 7 clears the affected e
 A few situations aren't spelled out identically across sources; here's what this
 implementation does:
 
+- **One flip per turn.** Play goes around the table one player at a time; hitting draws a
+  single card and then passes play on, rather than letting a player chain flips. Forced
+  Flip Three draws are the exception — those three run back to back off their own stack.
 - **Nested Flip Three** resolves innermost-first, then finishes the outer sequence.
 - **Flip 7 mid-sequence** stops the remaining forced draws and ends the round for everyone
   immediately. Players who already busted stay busted.
@@ -101,7 +104,15 @@ draw pile and discard pile are replaced by same-length filler before sending
 (`publicState` in [server/src/rooms.ts](server/src/rooms.ts)), so opening devtools can't
 show you the next card. Clients and bots only ever read the lengths.
 
-If a player drops mid-game their seat is held: they can rejoin with the same code
+Players can **leave at any time** — the ⏻ button in the game header, or Leave in the
+lobby. Mid-round departures are repaired rather than aborted: the leaver's cards go back
+to the discard pile, the dealer and turn markers shift to keep pointing at the same
+seats, forced draws they owed are dropped, and any targeting prompt they owned is
+cancelled (one merely aimed at them just loses that option). See `removePlayer` in
+[shared/game/engine.ts](shared/game/engine.ts).
+
+Leaving is permanent for that game. Dropping *without* leaving is not — if a player's
+connection fails, their seat is held: they can rejoin with the same code
 (the client stores its session in `localStorage` and re-claims the seat automatically on
 reconnect). Meanwhile the table doesn't stall — after a few seconds the server plays a
 conservative move on their behalf. In the lobby, a disconnect just frees the seat.

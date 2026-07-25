@@ -78,6 +78,9 @@ export function ActionBar({ state, me, waiting, onHit, onStay }: ActionBarProps)
             Stay
           </button>
         </div>
+        <p className="mt-1.5 text-center text-[11px] text-cream/45">
+          One card per turn — play passes on after you flip.
+        </p>
       </div>
     </div>
   );
