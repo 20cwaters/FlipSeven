@@ -95,8 +95,11 @@ implementation does:
 
 ## Multiplayer & disconnects
 
-Rooms are in-memory and short-lived — no database. Everything is public information, so
-the full `GameState` is broadcast to everyone.
+Rooms are in-memory and short-lived — no database. Everything face-up is public
+information, so the `GameState` is broadcast to everyone as-is, with one exception: the
+draw pile and discard pile are replaced by same-length filler before sending
+(`publicState` in [server/src/rooms.ts](server/src/rooms.ts)), so opening devtools can't
+show you the next card. Clients and bots only ever read the lengths.
 
 If a player drops mid-game their seat is held: they can rejoin with the same code
 (the client stores its session in `localStorage` and re-claims the seat automatically on

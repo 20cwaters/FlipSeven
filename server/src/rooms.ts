@@ -7,6 +7,7 @@
  */
 
 import {
+  type Card,
   type GameState,
   type PlayerState,
   chooseBotTarget,
@@ -36,6 +37,22 @@ export interface Room {
 }
 
 const rooms = new Map<string, Room>();
+
+/**
+ * Flip 7 is public information — but only what's face-up. The deck order and the
+ * discard pile are not, so they're replaced with same-length filler before the
+ * state goes over the wire. Clients and bots only ever read `.length` off these,
+ * and this stops a player with devtools open from reading the next card.
+ */
+const HIDDEN_CARD: Card = { id: 'hidden', kind: 'number', value: 0 };
+
+export function publicState(state: GameState): GameState {
+  return {
+    ...state,
+    deck: new Array(state.deck.length).fill(HIDDEN_CARD),
+    discard: new Array(state.discard.length).fill(HIDDEN_CARD),
+  };
+}
 
 /** How long a human has before we auto-play for them (disconnect safety net). */
 const DISCONNECTED_GRACE_MS = 4000;
@@ -124,7 +141,7 @@ export function drive(room: Room) {
     room.timer = null;
   }
   room.lastActivity = Date.now();
-  room.broadcast(room.state);
+  room.broadcast(publicState(room.state));
 
   const state = room.state;
   const wait = waitingOn(state);
